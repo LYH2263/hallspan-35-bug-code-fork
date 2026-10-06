@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import Candidate, Hall, SeatPlan
 from app.services.seat_engine import plan_seating
-from app.services.page_rollup import mix_stats, mix_violations
 router = APIRouter(prefix="/seating", tags=["seating"])
 
 
@@ -69,7 +68,7 @@ def latest(hall_id: int = 1, db: Session = Depends(get_db)):
     # 配置（损坏格/套卷/最小距/考生）变更 → 指纹不匹配 → 三口一起重算，禁止读到陈旧口径。
     cands = _candidates(db, hall_id)
     sig = _config_sig(hall, cands)
-    if not plan:
+    if not plan or plan.config_sig != sig:
         return run_seating(hall_id=hall_id, db=db)
     data = json.loads(plan.result_json)
     return {"id": plan.id, **data}
@@ -89,4 +88,5 @@ def violations(hall_id: int = 1, db: Session = Depends(get_db)):
 @router.get("/stats")
 def stats(hall_id: int = 1, db: Session = Depends(get_db)):
     data = latest(hall_id=hall_id, db=db)
-    return {"hall_id": hall_id, **mix_stats(data)}
+    # 分类计数唯一来自 plan.stats（由 issues 列表 reduce），禁止另写一套计数。
+    return {"hall_id": hall_id, **data.get("stats", {})}
