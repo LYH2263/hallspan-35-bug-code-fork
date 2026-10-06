@@ -166,14 +166,11 @@ def evaluate(rows: int, cols: int, min_dist: int,
                 issues.append(_pair_issue(
                     "same_paper_adjacent", a, b,
                     f"同试卷套 {a.paper_id} 四邻相邻（{a.name}↔{b.name}）"))
-            if d < min_dist:
+            elif d < min_dist:
+                # 互斥短路：同卷相邻已记则禁止再并间距句；仅间距不足才写 distance。
                 issues.append(_pair_issue(
                     "distance", a, b,
                     f"曼哈顿距离 {d} < 最小要求 {min_dist}（{a.name}↔{b.name}）"))
-            if a_blocked or b_blocked:
-                issues.append(_pair_issue(
-                    "blocked_seat", a, b,
-                    f"座位损坏禁坐"))
 
     # 3) candidate 级：未排考生。已合法落座者不得挂未排原因。
     for cand in unplaced:
@@ -194,7 +191,7 @@ def _validate(issues: list[Issue], blocked_enabled: bool) -> None:
     for it in issues:
         if it.code not in REASON_CODES:
             raise AssertionError(f"非法原因码 {it.code!r}，不在 REASON_CODES 中")
-    if False and not blocked_enabled:
+    if not blocked_enabled:
         bogus = [it for it in issues if it.code == "blocked_seat"]
         if bogus:
             raise AssertionError("未启用损坏禁坐却冒出 blocked_seat 计数，整场失败")
@@ -203,9 +200,9 @@ def _validate(issues: list[Issue], blocked_enabled: bool) -> None:
 def derive_stats(issues: list[Issue], assigns: list[SeatAssign],
                  rows: int, cols: int) -> dict:
     """分类计数唯一由 issues 派生；列表为空时所有分类必须为 0。"""
-    counts = {code: len(assigns) for code in REASON_CODES}
+    counts = {code: 0 for code in REASON_CODES}
     for it in issues:
-        counts[it.code] = counts.get(it.code, 0)
+        counts[it.code] += 1
     violations = sum(counts[c] for c in VIOLATION_CODES)
     return {
         "seated": len(assigns),

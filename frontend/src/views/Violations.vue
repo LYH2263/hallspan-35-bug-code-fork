@@ -16,7 +16,7 @@ function who(i: any) {
 </script>
 <template>
   <h1>违规</h1>
-  <p class="sub">违规列表与分类数字可分开累计</p>
+  <p class="sub">违规列表 / 未排原因 / 分类计数同源于 issues，同一套码</p>
   <div class="card">
     <table>
       <thead><tr><th>类型</th><th>对象</th><th>说明</th></tr></thead>
@@ -43,5 +43,5 @@ function who(i: any) {
       </tbody>
     </table>
   </div>
-  <p class="muted">列表条数与分类数字可分开累计</p>
+  <p class="muted">列表条数与分类计数由同一份 issues 派生，必然一致</p>
 </template>

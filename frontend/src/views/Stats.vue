@@ -45,5 +45,4 @@ const mismatch = computed(() => {
     <p v-if="mismatch" class="badge badge-bad">三口对不齐：{{ mismatch }}</p>
     <p v-else class="muted">行说明 / 列表 / 计数三口一致</p>
   </div>
-  <p v-if="s.page_split" class="muted">页侧人数 {{ s.seated }} / 未排 {{ s.unplaced }}</p>
 </template>

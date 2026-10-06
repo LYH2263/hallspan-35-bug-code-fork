@@ -30,11 +30,27 @@ def _config_sig(hall: Hall, cands: list[dict]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _api_by_code(issues: list[dict], blocked_seats: list) -> dict:
+    """分类计数 = issues 列表现场 reduce（稀疏，条数和 == 列表行数）。
+
+    考室配置了损坏格时 blocked_seat 键始终在场：未启用禁坐则为 0，
+    绝不允许未打开禁坐却计数 >0。
+    """
+    counts: dict[str, int] = {}
+    for it in issues:
+        counts[it["code"]] = counts.get(it["code"], 0) + 1
+    if blocked_seats:
+        counts.setdefault("blocked_seat", 0)
+    return counts
+
+
 def _compute(db: Session, hall: Hall) -> dict:
     cands = _candidates(db, hall.id)
     blocked = [tuple(x) for x in json.loads(hall.blocked_seats or "[]")]
     result = plan_seating(hall.rows, hall.cols, hall.min_manhattan, cands,
                           blocked_seats=blocked, blocked_enabled=bool(hall.blocked_enabled))
+    # 下发口径：by_code 由列表派生（稀疏），禁坐键随损坏格配置在场。
+    result["stats"]["by_code"] = _api_by_code(result["issues"], blocked)
     result["hall"] = {"id": hall.id, "name": hall.name, "min_manhattan": hall.min_manhattan}
     result["config_sig"] = _config_sig(hall, cands)
     return result
@@ -69,7 +85,7 @@ def latest(hall_id: int = 1, db: Session = Depends(get_db)):
     # 配置（损坏格/套卷/最小距/考生）变更 → 指纹不匹配 → 三口一起重算，禁止读到陈旧口径。
     cands = _candidates(db, hall_id)
     sig = _config_sig(hall, cands)
-    if not plan:
+    if not plan or plan.config_sig != sig:
         return run_seating(hall_id=hall_id, db=db)
     data = json.loads(plan.result_json)
     return {"id": plan.id, **data}
@@ -81,8 +97,7 @@ def violations(hall_id: int = 1, db: Session = Depends(get_db)):
     return {
         "hall_id": hall_id,
         "reason_codes": data.get("reason_codes", {}),
-        "issues": data.get("issues", []),
-        "unplaced": data.get("unplaced", []),
+        **mix_violations(data),
     }
 
 
